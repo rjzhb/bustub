@@ -73,7 +73,35 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   // 2.     If R is dirty, write it back to the disk.
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-  return nullptr;
+//  如果该页在缓冲池中直接访问
+//  如果该页不在缓冲池但是缓冲池中有空闲。从disk中取出page然后放入缓冲池之后在访问
+//      如果该页不在缓冲池并且缓冲池也非空闲
+//  需要找到一个牺牲页。把它移出（判断脏位来决定是否要写会磁盘）
+//  然后和情况2一样。
+  Page *page = pages_;
+  for (size_t i = 0; i < pool_size_; i++) {
+    if (page->GetPageId() == page_id) {
+      page->pin_count_++;
+      page_table_[page_id] = i;
+      return page;
+    }
+  }
+  int pos = 0;
+  // find from free list
+  if (!free_list_.empty()) {
+     pos = free_list_.front();
+  }else{
+
+  }
+
+  Page *page_1 = pages_ + pos;
+  if(page_1->is_dirty_){
+    disk_manager_->WritePage(page_id, page_1->GetData());
+  }
+  //delete R and insert P
+  page_table_[page_id] = pos;
+  replacer_->Pin(pos);
+  return page_1;
 }
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
