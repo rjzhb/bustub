@@ -146,6 +146,6 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   std::mutex latch_;
 
  private:
-  bool find_replacer();
+  bool find_replacer(frame_id_t *frame_id);
 };
 }  // namespace bustub

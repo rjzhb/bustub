@@ -55,8 +55,8 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
     return false;
   }
   frame_id_t frame_Id = page_table_[page_id];
-  Page* page = &pages_[frame_Id];
-  disk_manager_->WritePage(page_id, page.GetData());
+  Page *page = &pages_[frame_Id];
+  disk_manager_->WritePage(page_id, page->GetData());
   latch_.unlock();
   return true;
 }
@@ -65,12 +65,12 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
   latch_.lock();
   Page *page_head = pages_;
-  for (int i = 0; i < pool_size_; i++) {
-    if (page_table_.find(page->page_id_) == page_table_.end() || page->page_id_ == INVALID_PAGE_ID) {
+  for (size_t i = 0; i < pool_size_; i++) {
+    if (page_table_.find(page_head->page_id_) == page_table_.end() || page_head->page_id_ == INVALID_PAGE_ID) {
       latch_.unlock();
       return;
     }
-    disk_manager_->WritePage(page->page_id_, page->GetData());
+    disk_manager_->WritePage(page_head->page_id_, page_head->GetData());
     page_head++;
   }
   latch_.unlock();
@@ -83,8 +83,8 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
   Page *page_head = pages_;
   bool is_all = true;
-  for (int i = 0; i < pool_size_; i++) {
-    if (*page_head->pin_count_ == 0) {
+  for (size_t i = 0; i < pool_size_; i++) {
+    if (page_head->pin_count_ == 0) {
       is_all = false;
       break;
     }
@@ -94,23 +94,22 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     return nullptr;
   }
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
-  frame_id_t *new_frame_id;
+  frame_id_t *new_frame_id = nullptr;
   if (!find_replacer(new_frame_id)) {
     latch_.unlock();
     return nullptr;
   }
   // 3.   Update P's metadata, zero out memory and add P to the page table.
-  Page new_page = pages_[*new_frame_id];
-  new_page.page_id_ = new_page_id;
+  Page *new_page = &pages_[*new_frame_id];
+  new_page->page_id_ = new_page_id;
   page_table_[new_page_id] = *new_frame_id;
-  new_page.is_dirty_ = false;
+  new_page->is_dirty_ = false;
   replacer_->Pin(*new_frame_id);
-  new_page.pin_count_++;
+  new_page->pin_count_++;
   // 4.   Set the page ID output parameter. Return a pointer to P.
   *page_id = new_page_id;
-  Page *res = &new_page;
   latch_.unlock();
-  return res;
+  return new_page;
 }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
@@ -119,29 +118,29 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   latch_.lock();
   if (page_table_.find(page_id) != page_table_.end()) {
     frame_id_t frame_id = page_table_[page_id];
-    Page page = pages_[frame_id];
-    page.pin_count_++;
+    Page *page = &pages_[frame_id];
+    page->pin_count_++;
     latch_.unlock();
-    return &page;
+    return page;
   }
   // 1.2    If P does not exist, find a replacement page (R) from either the free list or the replacer.
   //        Note that pages are always found from the free list first.
   // 2.     If R is dirty, write it back to the disk.
-  frame_id_t *rep_fid;
+  frame_id_t *rep_fid = nullptr;
   if (!find_replacer(rep_fid)) {
     latch_.unlock();
     return nullptr;
   }
   // 3.     Delete R from the page table and insert P.
-  Page fetch_page = pages_[*rep_fid];
-  page_table_[fetch_page.page_id_] = *rep_fid;
+  Page *fetch_page = &pages_[*rep_fid];
+  page_table_[fetch_page->page_id_] = *rep_fid;
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-  fetch_page.page_id_ = page_id;
-  fetch_page.pin_count_ = 0;
-  fetch_page.is_dirty_ = false;
-  disk_manager_->ReadPage(page_id, fetch_page.GetData());
+  fetch_page->page_id_ = page_id;
+  fetch_page->pin_count_ = 0;
+  fetch_page->is_dirty_ = false;
+  disk_manager_->ReadPage(page_id, fetch_page->GetData());
   latch_.unlock();
-  return &fetch_page;
+  return fetch_page;
 }
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
@@ -230,7 +229,7 @@ bool BufferPoolManagerInstance::find_replacer(frame_id_t *frame_id) {
   }
 
   // is dirty
-  Page *page = pages_[*frame_id];
+  Page *page = &pages_[*frame_id];
   if (page->is_dirty_) {
     // write page to disk
     disk_manager_->WritePage(page->page_id_, page->GetData());
