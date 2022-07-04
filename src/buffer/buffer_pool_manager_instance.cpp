@@ -49,71 +49,150 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 
 auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   // Make sure you call DiskManager::WritePage!
-  return false;
+  latch_.lock();
+  if (page_table_.find(page_id) == page_table_.end() || page_id == INVALID_PAGE_ID) {
+    latch_.unlock();
+    return false;
+  }
+  frame_id_t frame_Id = page_table_[page_id];
+  Page* page = &pages_[frame_Id];
+  disk_manager_->WritePage(page_id, page.GetData());
+  latch_.unlock();
+  return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
+  latch_.lock();
+  Page *page_head = pages_;
+  for (int i = 0; i < pool_size_; i++) {
+    if (page_table_.find(page->page_id_) == page_table_.end() || page->page_id_ == INVALID_PAGE_ID) {
+      latch_.unlock();
+      return;
+    }
+    disk_manager_->WritePage(page->page_id_, page->GetData());
+    page_head++;
+  }
+  latch_.unlock();
 }
 
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   // 0.   Make sure you call AllocatePage!
+  latch_.lock();
+  page_id_t new_page_id = AllocatePage();
   // 1.   If all the pages in the buffer pool are pinned, return nullptr.
+  Page *page_head = pages_;
+  bool is_all = true;
+  for (int i = 0; i < pool_size_; i++) {
+    if (*page_head->pin_count_ == 0) {
+      is_all = false;
+      break;
+    }
+  }
+  if (is_all) {
+    latch_.unlock();
+    return nullptr;
+  }
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
+  frame_id_t *new_frame_id;
+  if (!find_replacer(new_frame_id)) {
+    latch_.unlock();
+    return nullptr;
+  }
   // 3.   Update P's metadata, zero out memory and add P to the page table.
+  Page new_page = pages_[*new_frame_id];
+  new_page.page_id_ = new_page_id;
+  page_table_[new_page_id] = *new_frame_id;
+  new_page.is_dirty_ = false;
+  replacer_->Pin(*new_frame_id);
+  new_page.pin_count_++;
   // 4.   Set the page ID output parameter. Return a pointer to P.
-  return nullptr;
+  *page_id = new_page_id;
+  Page *res = &new_page;
+  latch_.unlock();
+  return res;
 }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   // 1.     Search the page table for the requested page (P).
   // 1.1    If P exists, pin it and return it immediately.
+  latch_.lock();
+  if (page_table_.find(page_id) != page_table_.end()) {
+    frame_id_t frame_id = page_table_[page_id];
+    Page page = pages_[frame_id];
+    page.pin_count_++;
+    latch_.unlock();
+    return &page;
+  }
   // 1.2    If P does not exist, find a replacement page (R) from either the free list or the replacer.
   //        Note that pages are always found from the free list first.
   // 2.     If R is dirty, write it back to the disk.
+  frame_id_t *rep_fid;
+  if (!find_replacer(rep_fid)) {
+    latch_.unlock();
+    return nullptr;
+  }
   // 3.     Delete R from the page table and insert P.
+  Page fetch_page = pages_[*rep_fid];
+  page_table_[fetch_page.page_id_] = *rep_fid;
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-//  如果该页在缓冲池中直接访问
-//  如果该页不在缓冲池但是缓冲池中有空闲。从disk中取出page然后放入缓冲池之后在访问
-//      如果该页不在缓冲池并且缓冲池也非空闲
-//  需要找到一个牺牲页。把它移出（判断脏位来决定是否要写会磁盘）
-//  然后和情况2一样。
-  Page *page = pages_;
-  for (size_t i = 0; i < pool_size_; i++) {
-    if (page->GetPageId() == page_id) {
-      page->pin_count_++;
-      page_table_[page_id] = i;
-      return page;
-    }
-  }
-  int pos = 0;
-  // find from free list
-  if (!free_list_.empty()) {
-     pos = free_list_.front();
-  }else{
-
-  }
-
-  Page *page_1 = pages_ + pos;
-  if(page_1->is_dirty_){
-    disk_manager_->WritePage(page_id, page_1->GetData());
-  }
-  //delete R and insert P
-  page_table_[page_id] = pos;
-  replacer_->Pin(pos);
-  return page_1;
+  fetch_page.page_id_ = page_id;
+  fetch_page.pin_count_ = 0;
+  fetch_page.is_dirty_ = false;
+  disk_manager_->ReadPage(page_id, fetch_page.GetData());
+  latch_.unlock();
+  return &fetch_page;
 }
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   // 0.   Make sure you call DeallocatePage!
   // 1.   Search the page table for the requested page (P).
   // 1.   If P does not exist, return true.
+  latch_.lock();
+  if (page_table_.find(page_id) == page_table_.end()) {
+    latch_.unlock();
+    return true;
+  }
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
-  // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
-  return false;
+  frame_id_t fid = page_table_[page_id];
+  Page *page = &pages_[fid];
+  if (page->pin_count_ != 0) {
+    latch_.unlock();
+    return false;
+  }
+  // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list
+  DeallocatePage(page_id);
+  page_table_.erase(page_id);
+  page->pin_count_ = 0;
+  page->is_dirty_ = false;
+  page->page_id_ = INVALID_PAGE_ID;
+  free_list_.push_back(fid);
+  latch_.unlock();
+  return true;
 }
 
-auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool { return false; }
+auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
+  latch_.lock();
+  if (page_table_.find(page_id) == page_table_.end()) {
+    latch_.unlock();
+    return false;
+  }
+  frame_id_t frame_id = page_table_[page_id];
+  Page *page = &pages_[frame_id];
+  if (page->is_dirty_) {
+    page->is_dirty_ = true;
+  }
+  if (page->pin_count_ == 0) {
+    latch_.unlock();
+    return false;
+  }
+  page->pin_count_--;
+  if (page->pin_count_ == 0) {
+    replacer_->Unpin(frame_id);
+  }
+  latch_.unlock();
+  return true;
+}
 
 auto BufferPoolManagerInstance::AllocatePage() -> page_id_t {
   const page_id_t next_page_id = next_page_id_;
@@ -126,4 +205,38 @@ void BufferPoolManagerInstance::ValidatePageId(const page_id_t page_id) const {
   assert(page_id % num_instances_ == instance_index_);  // allocated pages mod back to this BPI
 }
 
+bool BufferPoolManagerInstance::find_replacer(frame_id_t *frame_id) {
+  // Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
+  // pick from the free list first
+  if (!free_list_.empty()) {
+    *frame_id = free_list_.front();
+    free_list_.pop_front();
+    return true;
+  }
+  // pick from replacer
+  if (!replacer_->Victim(frame_id)) {
+    return false;
+  }
+  page_id_t page_id = -1;
+  for (const auto &page : page_table_) {
+    if (page.second == *frame_id) {
+      page_id = page.first;
+      break;
+    }
+  }
+  if (page_id == -1) {
+    // 说明这段page已经被释放掉了
+    return false;
+  }
+
+  // is dirty
+  Page *page = pages_[*frame_id];
+  if (page->is_dirty_) {
+    // write page to disk
+    disk_manager_->WritePage(page->page_id_, page->GetData());
+    page->pin_count_ = 0;
+  }
+  page_table_.erase(page_id);
+  return true;
+}
 }  // namespace bustub
