@@ -80,6 +80,6 @@ void LRUReplacer::Unpin(frame_id_t frame_id) {
   latch.unlock();
 }
 
-auto LRUReplacer::Size() -> size_t { lru_list.size(); }
+auto LRUReplacer::Size() -> size_t { return lru_list.size(); }
 
 }  // namespace bustub
