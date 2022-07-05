@@ -48,12 +48,10 @@ class LRUReplacer : public Replacer {
 
  private:
   // TODO(student): implement me!
-  std::list<frame_id_t> frame_list_;
-//  std::map<frame_id_t, size_t> pin_count_map_;
-  size_t capacity;
-  std::mutex latch;
-  std::list<frame_id_t> lru_list;
-  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> lruMap;
+  size_t capacity_;
+  std::mutex latch_;
+  std::list<frame_id_t> lru_list_;
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> lru_map_;
 };
 
 }  // namespace bustub

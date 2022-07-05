@@ -14,7 +14,7 @@
 
 namespace bustub {
 
-LRUReplacer::LRUReplacer(size_t num_pages) { capacity = num_pages; }
+LRUReplacer::LRUReplacer(size_t num_pages) { capacity_ = num_pages; }
 
 LRUReplacer::~LRUReplacer() = default;
 
@@ -25,19 +25,19 @@ auto LRUReplacer::Victim(frame_id_t *frame_id) -> bool {
    *  If the Replacer is empty return False.
    * @param frame_id
    */
-  latch.lock();
-  if (lruMap.empty()) {
-    latch.unlock();
+  latch_.lock();
+  if (lru_map_.empty()) {
+    latch_.unlock();
     return false;
   }
 
   // 选择列表尾部 也就是最少使用的frame
-  frame_id_t lru_frame = lru_list.back();
-  lruMap.erase(lru_frame);
+  frame_id_t lru_frame = lru_list_.back();
+  lru_map_.erase(lru_frame);
   // 列表删除
-  lru_list.pop_back();
+  lru_list_.pop_back();
   *frame_id = lru_frame;
-  latch.unlock();
+  latch_.unlock();
   return true;
 }
 
@@ -46,14 +46,14 @@ void LRUReplacer::Pin(frame_id_t frame_id) {
    * This method should be called after a page is pinned to a frame in the BufferPoolManager.
    * It should remove the frame containing the pinned page from the LRUReplacer.
    */
-  latch.lock();
+  latch_.lock();
 
-  if (lruMap.count(frame_id) != 0) {
-    lru_list.erase(lruMap[frame_id]);
-    lruMap.erase(frame_id);
+  if (lru_map_.count(frame_id) != 0) {
+    lru_list_.erase(lru_map_[frame_id]);
+    lru_map_.erase(frame_id);
   }
 
-  latch.unlock();
+  latch_.unlock();
 }
 
 void LRUReplacer::Unpin(frame_id_t frame_id) {
@@ -62,24 +62,24 @@ void LRUReplacer::Unpin(frame_id_t frame_id) {
    * This method should add the frame containing the unpinned page to the LRUReplacer.
    * @return
    */
-  latch.lock();
-  if (lruMap.count(frame_id) != 0) {
-    latch.unlock();
+  latch_.lock();
+  if (lru_map_.count(frame_id) != 0) {
+    latch_.unlock();
     return;
   }
   // if list size >= capacity
   // while {delete front}
-  while (Size() >= capacity) {
-    frame_id_t need_del = lru_list.back();
-    lru_list.pop_back();
-    lruMap.erase(need_del);
+  while (Size() >= capacity_) {
+    frame_id_t need_del = lru_list_.back();
+    lru_list_.pop_back();
+    lru_map_.erase(need_del);
   }
   // insert
-  lru_list.push_front(frame_id);
-  lruMap[frame_id] = lru_list.begin();
-  latch.unlock();
+  lru_list_.push_front(frame_id);
+  lru_map_[frame_id] = lru_list_.begin();
+  latch_.unlock();
 }
 
-auto LRUReplacer::Size() -> size_t { return lru_list.size(); }
+auto LRUReplacer::Size() -> size_t { return lru_list_.size(); }
 
 }  // namespace bustub
