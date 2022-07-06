@@ -13,11 +13,11 @@
 #pragma once
 
 #include "buffer/buffer_pool_manager.h"
+#include "buffer/buffer_pool_manager_instance.h"
 #include "recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/page.h"
-#include "buffer/buffer_pool_manager_instance.h"
-
+#include <vector>
 namespace bustub {
 
 class ParallelBufferPoolManager : public BufferPoolManager {
@@ -88,16 +88,18 @@ class ParallelBufferPoolManager : public BufferPoolManager {
    */
   void FlushAllPgsImp() override;
 
-    /** How many instances are in the parallel BPM (if present, otherwise just 1 BPI) */
-    uint32_t num_instances_ = 1;
-    /** Index of this BPI in the parallel BPM (if present, otherwise just 0) */
-    uint32_t instance_index_ = 0;
-    /** Pointer to the disk manager. */
-    DiskManager *disk_manager_ __attribute__((__unused__));
-    /** Pointer to the log manager. */
-    LogManager *log_manager_ __attribute__((__unused__));
-    /** Number of pages in the buffer pool. */
-    size_t pool_size_;
-    BufferPoolManagerInstance* buffer_pool_manager_instance_;
+  /** How many instances are in the parallel BPM (if present, otherwise just 1 BPI) */
+  uint32_t num_instances_ = 1;
+  /** Index of this BPI in the parallel BPM (if present, otherwise just 0) */
+  uint32_t instance_index_ = 0;
+  /** Pointer to the disk manager. */
+  DiskManager *disk_manager_ __attribute__((__unused__));
+  /** Pointer to the log manager. */
+  LogManager *log_manager_ __attribute__((__unused__));
+  /** Number of pages in the buffer pool. */
+  size_t pool_size_;
+  std::vector<BufferPoolManagerInstance *> bpmi_;
+  uint32_t next_instance_ = 0;
+  std::mutex latch_;
 };
 }  // namespace bustub
