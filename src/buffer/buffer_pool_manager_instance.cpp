@@ -110,6 +110,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     disk_manager_->WritePage(new_page->page_id_, new_page->data_);  // 写回磁盘
     new_page->is_dirty_ = false;
   }
+  new_page->ResetMemory();
   page_table_.erase(new_page->page_id_);
   //这里才开始分配内存，为了后面的并行bufferpool的实现
   page_id_t new_page_id = AllocatePage();
