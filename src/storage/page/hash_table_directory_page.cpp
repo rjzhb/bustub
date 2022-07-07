@@ -35,7 +35,7 @@ namespace bustub {
     void HashTableDirectoryPage::DecrGlobalDepth() { global_depth_--; }
 
     auto HashTableDirectoryPage::GetBucketPageId(uint32_t bucket_idx) -> page_id_t {
-        return bucket_page_ids_[bucket_idx]
+        return bucket_page_ids_[bucket_idx];
     }
 
     void HashTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id_t bucket_page_id) {
@@ -48,7 +48,7 @@ namespace bustub {
         //当所有桶的局部深度均小于全局深度或者局部深度全为0时，就可以缩小
         bool can_shrink = true;
         for (int i = 0; i < DIRECTORY_ARRAY_SIZE; i++) {
-            if (local_depths_[i] >= global_depth_ && local_depths_[i] ! = 0){
+            if (local_depths_[i] >= global_depth_ && local_depths_[i] != 0){
                 can_shrink = false;
             }
         }
@@ -66,7 +66,7 @@ namespace bustub {
     void HashTableDirectoryPage::DecrLocalDepth(uint32_t bucket_idx) { local_depths_[bucket_idx]--; }
 
     auto HashTableDirectoryPage::GetLocalHighBit(uint32_t bucket_idx) -> uint32_t {
-        return 1 << local_depths_[bucket_idx] - 1;
+        return 1 <<(local_depths_[bucket_idx] - 1);
     }
 
 /**

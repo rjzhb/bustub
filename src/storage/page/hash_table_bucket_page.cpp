@@ -23,7 +23,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vector<ValueType> *result) -> bool {
   bool is_true = false;
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
-    if(IsReadable(i)&&cmp(key, array_[i].first){
+    if(IsReadable(i)&&cmp(key, array_[i].first)){
       result->emplace_back(array_[i].second);
       is_true = true;
   }
