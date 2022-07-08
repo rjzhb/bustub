@@ -46,22 +46,30 @@ auto HASH_TABLE_TYPE::Hash(KeyType key) -> uint32_t {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 inline auto HASH_TABLE_TYPE::KeyToDirectoryIndex(KeyType key, HashTableDirectoryPage *dir_page) -> uint32_t {
-  return 0;
+  uint32_t mask = dir_page->GetGlobalDepthMask();
+  return key & mask;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 inline auto HASH_TABLE_TYPE::KeyToPageId(KeyType key, HashTableDirectoryPage *dir_page) -> uint32_t {
-  return 0;
+  return dir_page->GetBucketPageId(KeyToDirectoryIndex(key, dir_page));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_TYPE::FetchDirectoryPage() -> HashTableDirectoryPage * {
-  return nullptr;
+  if (directory_page_id_ == INVALID_PAGE_ID) {
+    return nullptr;
+  }
+  Page *page = buffer_pool_manager_->FetchPage() return nullptr;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_TYPE::FetchBucketPage(page_id_t bucket_page_id) -> HASH_TABLE_BUCKET_TYPE * {
-  return nullptr;
+  Page *page = buffer_pool_manager_->FetchPage(bucket_page_id, nullptr);
+  assert(page != nullptr);
+  HashTableBucketPage<KeyType, ValueType, KeyComparator> *hash_table_bucket_page =
+      reinterpret_cast<HashTableBucketPage *>(page->GetData());
+  return hash_table_bucket_page;
 }
 
 /*****************************************************************************
