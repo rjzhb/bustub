@@ -54,8 +54,8 @@ auto HashTableDirectoryPage::Size() -> uint32_t { return 1 << global_depth_; }
 auto HashTableDirectoryPage::CanShrink() -> bool {
   //当所有桶的局部深度均小于全局深度或者局部深度全为0时，就可以缩小
   bool can_shrink = true;
-  for (int i = 0; i < DIRECTORY_ARRAY_SIZE; i++) {
-    if (local_depths_[i] >= global_depth_ && local_depths_[i] != 0) {
+  for (unsigned char local_depth : local_depths_) {
+    if (local_depth >= global_depth_ && local_depth != 0) {
       can_shrink = false;
     }
   }

@@ -51,14 +51,18 @@ auto ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) -> Page * {
 auto ParallelBufferPoolManager::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
   // Unpin page_id from responsible BufferPoolManagerInstance
   BufferPoolManager *buffer_pool_manager = GetBufferPoolManager(page_id);
-  if (buffer_pool_manager == nullptr) return true;
+  if (buffer_pool_manager == nullptr) {
+    return true;
+  }
   return buffer_pool_manager->UnpinPage(page_id, is_dirty);
 }
 
 auto ParallelBufferPoolManager::FlushPgImp(page_id_t page_id) -> bool {
   // Flush page_id from responsible BufferPoolManagerInstance
   BufferPoolManager *buffer_pool_manager = GetBufferPoolManager(page_id);
-  if (buffer_pool_manager == nullptr) return true;
+  if (buffer_pool_manager == nullptr) {
+    return true;
+  }
   return buffer_pool_manager->FlushPage(page_id);
 }
 
@@ -84,7 +88,9 @@ auto ParallelBufferPoolManager::NewPgImp(page_id_t *page_id) -> Page * {
 auto ParallelBufferPoolManager::DeletePgImp(page_id_t page_id) -> bool {
   // Delete page_id from responsible BufferPoolManagerInstance
   BufferPoolManager *buffer_pool_manager = GetBufferPoolManager(page_id);
-  if (buffer_pool_manager == nullptr) return true;
+  if (buffer_pool_manager == nullptr) {
+    return true;
+  }
   return buffer_pool_manager->DeletePage(page_id);
 }
 

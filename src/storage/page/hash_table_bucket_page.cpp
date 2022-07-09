@@ -37,7 +37,7 @@ auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
   // 遍历所有位置，找到一个可以插入的位置，并且确定有无完全相同的K/V，有则不插入
   for (size_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
     if (IsReadable(i)) {
-      if(cmp(key, array_[i].first) == 0&& value==array_[i].second){
+      if (cmp(key, array_[i].first) == 0 && value == array_[i].second) {
         return false;
       }
     } else if (available == -1) {
@@ -119,14 +119,14 @@ auto HASH_TABLE_BUCKET_TYPE::IsFull() -> bool {
   bool is_full = true;
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE / 8; i++) {
     uint32_t bit_num = static_cast<uint32_t>(readable_[i]);
-    if (!(bit_num & mask)) {
+    if ((bit_num & mask) == 0u) {
       return false;
     }
   }
   // remain
   uint32_t c = static_cast<uint32_t>(readable_[BUCKET_ARRAY_SIZE / 8]);
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE % 8; i++) {
-    if (!(c & 1)) {
+    if ((c & 1) != 0u) {
       return false;
     }
     c = c >> 1;
@@ -139,7 +139,7 @@ auto HASH_TABLE_BUCKET_TYPE::NumReadable() -> uint32_t {
   uint32_t cnt = 0;
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
     uint32_t bit_num = static_cast<uint32_t>(readable_[i / 8]);
-    if (bit_num & (1 << i % 8)) {
+    if ((bit_num & (1 << i % 8)) != 0u) {
       cnt++;
     }
   }
@@ -152,14 +152,14 @@ auto HASH_TABLE_BUCKET_TYPE::IsEmpty() -> bool {
   bool is_empty = true;
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE / 8; i++) {
     uint32_t bit_num = static_cast<uint32_t>(readable_[i]);
-    if (bit_num & mask) {
+    if ((bit_num & mask) != 0u) {
       return false;
     }
   }
   // remain
   uint32_t c = static_cast<uint32_t>(readable_[BUCKET_ARRAY_SIZE / 8]);
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE % 8; i++) {
-    if (c & 1) {
+    if ((c & 1) != 0u) {
       return false;
     }
     c = c >> 1;
