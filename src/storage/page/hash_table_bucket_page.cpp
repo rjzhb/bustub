@@ -23,7 +23,7 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vector<ValueType> *result) -> bool {
   bool is_true = false;
   for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
-    if (IsReadable(i) && cmp(key, array_[i].first)) {
+    if (IsReadable(i) && cmp(key, array_[i].first) == 0) {
       result->emplace_back(array_[i].second);
       is_true = true;
     }
@@ -33,27 +33,28 @@ auto HASH_TABLE_BUCKET_TYPE::GetValue(KeyType key, KeyComparator cmp, std::vecto
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 auto HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool {
-  for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
+  int available = -1;
+  // 遍历所有位置，找到一个可以插入的位置，并且确定有无完全相同的K/V，有则不插入
+  for (size_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
     if (IsReadable(i)) {
-      if (cmp(key, KeyAt(i)) == 0) {
-        if (value == ValueAt(i)) {
-          return false;
-        } else {
-          array_[i].second = value;
-          SetOccupied(i);
-          SetReadable(i);
-          return true;
-        }
+      if(cmp(key, array_[i].first) == 0&& value==array_[i].second){
+        return false;
       }
-    } else {
-      array_[i].first = key;
-      array_[i].second = value;
-      SetOccupied(i);
-      SetReadable(i);
-      return true;
+    } else if (available == -1) {
+      available = i;
     }
   }
-  return false;
+
+  // 遍历完看看找没找到空位
+  if (available == -1) {
+    return false;
+  }
+
+  // 插入数据
+  array_[available] = MappingType(key, value);
+  SetOccupied(available);
+  SetReadable(available);
+  return true;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
@@ -186,6 +187,26 @@ void HASH_TABLE_BUCKET_TYPE::PrintBucket() {
   }
 
   LOG_INFO("Bucket Capacity: %lu, Size: %u, Taken: %u, Free: %u", BUCKET_ARRAY_SIZE, size, taken, free);
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+auto HASH_TABLE_BUCKET_TYPE::GetCopyArray() -> MappingType * {
+  uint32_t size = NumReadable();
+  MappingType *array = new MappingType[size];
+  uint32_t j = 0;
+  for (uint32_t i = 0; i < BUCKET_ARRAY_SIZE; i++) {
+    if (IsReadable(i)) {
+      array[j++] = array_[i];
+    }
+  }
+  return array;
+}
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+void HASH_TABLE_BUCKET_TYPE::ResetMemory() {
+  memset(occupied_, 0, sizeof(occupied_));
+  memset(readable_, 0, sizeof(readable_));
+  memset(array_, 0, sizeof(array_));
 }
 
 // DO NOT REMOVE ANYTHING BELOW THIS LINE
