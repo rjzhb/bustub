@@ -45,7 +45,6 @@ auto ParallelBufferPoolManager::FetchPgImp(page_id_t page_id) -> Page * {
   // Fetch page for page_id from responsible BufferPoolManagerInstance
   BufferPoolManager *buffer_pool_manager = GetBufferPoolManager(page_id);
   return buffer_pool_manager->FetchPage(page_id);
-  ;
 }
 
 auto ParallelBufferPoolManager::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {

@@ -50,7 +50,7 @@ class ClockReplacer : public Replacer {
  private:
   // TODO(student): implement me!
   std::list<frame_id_t> frame_list_;
-  std::unordered_map<frame_id_t , bool> ref_map_;
+  std::unordered_map<frame_id_t, bool> ref_map_;
 };
 
 }  // namespace bustub

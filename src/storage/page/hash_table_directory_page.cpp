@@ -52,7 +52,7 @@ void HashTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id_t buck
 auto HashTableDirectoryPage::Size() -> uint32_t { return 1 << global_depth_; }
 
 auto HashTableDirectoryPage::CanShrink() -> bool {
-  //当所有桶的局部深度均小于全局深度或者局部深度全为0时，就可以缩小
+  // 当所有桶的局部深度均小于全局深度或者局部深度全为0时，就可以缩小
   bool can_shrink = true;
   for (unsigned char local_depth : local_depths_) {
     if (local_depth >= global_depth_ && local_depth != 0) {

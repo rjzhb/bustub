@@ -112,7 +112,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   }
   new_page->ResetMemory();
   page_table_.erase(new_page->page_id_);
-  //这里才开始分配内存，为了后面的并行bufferpool的实现
+  // 这里才开始分配内存，为了后面的并行bufferpool的实现
   page_id_t new_page_id = AllocatePage();
   new_page->page_id_ = new_page_id;
   page_table_[new_page_id] = *new_frame_id;
