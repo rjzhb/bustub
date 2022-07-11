@@ -14,6 +14,7 @@
 
 #include <queue>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "buffer/buffer_pool_manager.h"
@@ -52,7 +53,7 @@ class ExtendibleHashTable {
    * @param value the value to be associated with the key
    * @return true if insert succeeded, false otherwise
    */
-  auto Insert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
+  bool Insert(Transaction *transaction, const KeyType &key, const ValueType &value);
 
   /**
    * Deletes the associated value for the given key.
@@ -62,7 +63,7 @@ class ExtendibleHashTable {
    * @param value the value to delete
    * @return true if remove succeeded, false otherwise
    */
-  auto Remove(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
+  bool Remove(Transaction *transaction, const KeyType &key, const ValueType &value);
 
   /**
    * Performs a point query on the hash table.
@@ -72,19 +73,18 @@ class ExtendibleHashTable {
    * @param[out] result the value(s) associated with a given key
    * @return the value(s) associated with the given key
    */
-  auto GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result) -> bool;
+  bool GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result);
 
   /**
    * Returns the global depth.  Do not touch.
    */
-  auto GetGlobalDepth() -> uint32_t;
+  uint32_t GetGlobalDepth();
 
   /**
    * Helper function to verify the integrity of the extendible hash table's directory.  Do not touch.
    */
   void VerifyIntegrity();
 
- private:
   /**
    * Hash - simple helper to downcast MurmurHash's 64-bit hash to 32-bit
    * for extendible hashing.
@@ -92,7 +92,7 @@ class ExtendibleHashTable {
    * @param key the key to hash
    * @return the downcasted 32-bit hash
    */
-  inline auto Hash(KeyType key) -> uint32_t;
+  inline uint32_t Hash(KeyType key);
 
   /**
    * KeyToDirectoryIndex - maps a key to a directory index
@@ -110,7 +110,7 @@ class ExtendibleHashTable {
    * @param dir_page to use for lookup of global depth
    * @return the directory index
    */
-  inline auto KeyToDirectoryIndex(KeyType key, HashTableDirectoryPage *dir_page) -> uint32_t;
+  inline uint32_t KeyToDirectoryIndex(KeyType key, HashTableDirectoryPage *dir_page);
 
   /**
    * Get the bucket page_id corresponding to a key.
@@ -119,24 +119,23 @@ class ExtendibleHashTable {
    * @param dir_page a pointer to the hash table's directory page
    * @return the bucket page_id corresponding to the input key
    */
-  inline auto KeyToPageId(KeyType key, HashTableDirectoryPage *dir_page) -> uint32_t;
+  inline page_id_t KeyToPageId(KeyType key, HashTableDirectoryPage *dir_page);
 
   /**
    * Fetches the directory page from the buffer pool manager.
    *
    * @return a pointer to the directory page
    */
-  auto FetchDirectoryPage() -> HashTableDirectoryPage *;
+  HashTableDirectoryPage *FetchDirectoryPage();
 
   /**
    * Fetches the a bucket page from the buffer pool manager using the bucket's page_id.
    *
    * @param bucket_page_id the page_id to fetch
-   * @return a pointer to a bucket page
+   * @return a pair contains a pointer to page and a pointer to bucket page
    */
-  auto FetchBucketPage(page_id_t bucket_page_id) -> Page *;
+  std::pair<Page *, HASH_TABLE_BUCKET_TYPE *> FetchBucketPage(page_id_t bucket_page_id);
 
-  auto GetBucketPageData(Page *page) -> HASH_TABLE_BUCKET_TYPE *;
   /**
    * Performs insertion with an optional bucket splitting.
    *
@@ -145,7 +144,7 @@ class ExtendibleHashTable {
    * @param value the value to insert
    * @return whether or not the insertion was successful
    */
-  auto SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool;
+  bool SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value);
 
   /**
    * Optionally merges an empty bucket into it's pair.  This is called by Remove,
@@ -161,6 +160,11 @@ class ExtendibleHashTable {
    * @param value the value that was removed
    */
   void Merge(Transaction *transaction, const KeyType &key, const ValueType &value);
+
+  /**
+   * Pow function for uint32_t
+   */
+  uint32_t Pow(uint32_t base, uint32_t power) const;
 
   // member variables
   page_id_t directory_page_id_;

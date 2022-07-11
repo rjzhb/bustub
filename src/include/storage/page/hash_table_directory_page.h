@@ -36,7 +36,7 @@ class HashTableDirectoryPage {
   /**
    * @return the page ID of this page
    */
-  auto GetPageId() const -> page_id_t;
+  page_id_t GetPageId() const;
 
   /**
    * Sets the page ID of this page
@@ -48,7 +48,7 @@ class HashTableDirectoryPage {
   /**
    * @return the lsn of this page
    */
-  auto GetLSN() const -> lsn_t;
+  lsn_t GetLSN() const;
 
   /**
    * Sets the LSN of this page
@@ -63,7 +63,7 @@ class HashTableDirectoryPage {
    * @param bucket_idx the index in the directory to lookup
    * @return bucket page_id corresponding to bucket_idx
    */
-  auto GetBucketPageId(uint32_t bucket_idx) -> page_id_t;
+  page_id_t GetBucketPageId(uint32_t bucket_idx);
 
   /**
    * Updates the directory index using a bucket index and page_id
@@ -79,7 +79,7 @@ class HashTableDirectoryPage {
    * @param bucket_idx the directory index for which to find the split image
    * @return the directory index of the split image
    **/
-  auto GetSplitImageIndex(uint32_t bucket_idx) -> uint32_t;
+  uint32_t GetSplitImageIndex(uint32_t bucket_idx);
 
   /**
    * GetGlobalDepthMask - returns a mask of global_depth 1's and the rest 0's.
@@ -95,7 +95,7 @@ class HashTableDirectoryPage {
    *
    * @return mask of global_depth 1's and the rest 0's (with 1's from LSB upwards)
    */
-  auto GetGlobalDepthMask() -> uint32_t;
+  uint32_t GetGlobalDepthMask();
 
   /**
    * GetLocalDepthMask - same as global depth mask, except it
@@ -104,14 +104,14 @@ class HashTableDirectoryPage {
    * @param bucket_idx the index to use for looking up local depth
    * @return mask of local 1's and the rest 0's (with 1's from LSB upwards)
    */
-  auto GetLocalDepthMask(uint32_t bucket_idx) -> uint32_t;
+  uint32_t GetLocalDepthMask(uint32_t bucket_idx);
 
   /**
    * Get the global depth of the hash table directory
    *
    * @return the global depth of the directory
    */
-  auto GetGlobalDepth() -> uint32_t;
+  uint32_t GetGlobalDepth();
 
   /**
    * Increment the global depth of the directory
@@ -126,12 +126,12 @@ class HashTableDirectoryPage {
   /**
    * @return true if the directory can be shrunk
    */
-  auto CanShrink() -> bool;
+  bool CanShrink();
 
   /**
    * @return the current directory size
    */
-  auto Size() -> uint32_t;
+  uint32_t Size();
 
   /**
    * Gets the local depth of the bucket at bucket_idx
@@ -139,7 +139,7 @@ class HashTableDirectoryPage {
    * @param bucket_idx the bucket index to lookup
    * @return the local depth of the bucket at bucket_idx
    */
-  auto GetLocalDepth(uint32_t bucket_idx) -> uint32_t;
+  uint32_t GetLocalDepth(uint32_t bucket_idx);
 
   /**
    * Set the local depth of the bucket at bucket_idx to local_depth
@@ -169,7 +169,7 @@ class HashTableDirectoryPage {
    * @param bucket_idx bucket index to lookup
    * @return the high bit corresponding to the bucket's local depth
    */
-  auto GetLocalHighBit(uint32_t bucket_idx) -> uint32_t;
+  uint32_t GetLocalHighBit(uint32_t bucket_idx);
 
   /**
    * VerifyIntegrity
@@ -185,6 +185,11 @@ class HashTableDirectoryPage {
    * Prints the current directory
    */
   void PrintDirectory();
+
+  /**
+   * Pow function for uint32_t
+   */
+  uint32_t Pow(uint32_t base, uint32_t power) const;
 
  private:
   page_id_t page_id_;
