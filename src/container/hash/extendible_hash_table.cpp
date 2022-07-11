@@ -109,100 +109,106 @@ auto HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
  * INSERTION
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
-auto HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool {
+bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const ValueType &value) {
   table_latch_.RLock();
-  // 1.Get DiretoryPage
-  HashTableDirectoryPage *hash_table_directory_page = FetchDirectoryPage();
-  // 2. transfer key to bucket_index
-  uint32_t bucket_index = KeyToDirectoryIndex(key, hash_table_directory_page);
-  // 3.Get BucketPage
-  uint32_t bucket_page_id = hash_table_directory_page->GetBucketPageId(bucket_index);
-  auto [page, hash_table_bucket_page] = FetchBucketPage(bucket_page_id);
-  page->WLatch();
-  // insert k,v to bucketPage
-  // judge if bucket is full
-  if (!hash_table_bucket_page->IsFull()) {
-    bool is_insert = hash_table_bucket_page->Insert(key, value, comparator_);
-    buffer_pool_manager_->UnpinPage(directory_page_id_, false);
-    page->WUnlatch();
+
+  auto dir_page_data = FetchDirectoryPage();
+  auto bucket_page_id = KeyToPageId(key, dir_page_data);
+  auto [bucket_page, bucket_page_data] = FetchBucketPage(bucket_page_id);
+  bucket_page->WLatch();
+
+  // if the bucket is full, the insertion is handed over to SplitInsert() to complete.
+  if (bucket_page_data->IsFull()) {
     buffer_pool_manager_->UnpinPage(bucket_page_id, false);
+    buffer_pool_manager_->UnpinPage(directory_page_id_, false);
+    bucket_page->WUnlatch();
     table_latch_.RUnlock();
-    return is_insert;
+    return SplitInsert(transaction, key, value);
   }
-  page->WUnlatch();
-  table_latch_.RUnlock();
+  auto success = bucket_page_data->Insert(key, value, comparator_);
+  buffer_pool_manager_->UnpinPage(bucket_page_id, success);
   buffer_pool_manager_->UnpinPage(directory_page_id_, false);
-  buffer_pool_manager_->UnpinPage(bucket_page_id, false);
-  return SplitInsert(transaction, key, value);
+  bucket_page->WUnlatch();
+
+  table_latch_.RUnlock();
+  return success;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
-auto HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) -> bool {
-  // 1.Get DiretoryPage
+bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
   table_latch_.WLock();
-  HashTableDirectoryPage *hash_table_directory_page = FetchDirectoryPage();
-  // 2. transfer key to bucket_index
-  uint32_t bucket_index = KeyToDirectoryIndex(key, hash_table_directory_page);
-  // 3.Get BucketPage
-  uint32_t bucket_page_id = hash_table_directory_page->GetBucketPageId(bucket_index);
-  auto [page_latch, hash_table_bucket_page] = FetchBucketPage(bucket_page_id);
-  page_latch->WLatch();
-  // 4.judge
 
-  if (hash_table_directory_page->GetLocalDepth(bucket_index) == hash_table_directory_page->GetGlobalDepth()) {
-    hash_table_directory_page->IncrGlobalDepth();
-  }
-  // 5.incr LocalDepth
-  hash_table_directory_page->IncrLocalDepth(bucket_index);
-  uint32_t split_image_index = hash_table_directory_page->GetSplitImageIndex(bucket_index);
-  // 6. create a new bucket page
-  page_id_t *split_image_pid = new page_id_t;
-  Page *page = buffer_pool_manager_->NewPage(split_image_pid);
-  page->WLatch();
-  HASH_TABLE_BUCKET_TYPE *split_image_bucket = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(page->GetData());
-  hash_table_directory_page->SetBucketPageId(split_image_index, *split_image_pid);
-  hash_table_directory_page->SetLocalDepth(split_image_index, hash_table_directory_page->GetLocalDepth(bucket_index));
-  // 7. get copy Array
-  MappingType *array = hash_table_bucket_page->GetCopyArray();
-  // 8.remove all data and reset to two bucket page(split_image_bucket_page,hash_table_bucket_page)
-  hash_table_bucket_page->ResetMemory();
-  for (uint32_t i = 0; i < hash_table_bucket_page->NumReadable(); i++) {
-    auto k = array[i].first;
-    auto v = array[i].second;
-    uint32_t index = Hash(k) & hash_table_directory_page->GetLocalDepth(split_image_index);
-    page_id_t bucket_index_page = hash_table_directory_page->GetBucketPageId(index);
-    if (bucket_index_page == hash_table_directory_page->GetBucketPageId(split_image_index)) {
-      split_image_bucket->Insert(k, v, comparator_);
+  auto success = false;
+  auto inserted = false;
+  auto is_growing = false;
+  auto dir_page_data = FetchDirectoryPage();
+
+  // insert the key-value pair into the corresponding bucket.
+  // If the bucket is full, split until it is successfully inserted into the bucket.
+  while (!inserted) {
+    auto old_global_depth = dir_page_data->GetGlobalDepth();
+    auto bucket_idx = KeyToDirectoryIndex(key, dir_page_data);
+    auto bucket_page_id = KeyToPageId(key, dir_page_data);
+    auto [bucket_page, bucket_page_data] = FetchBucketPage(bucket_page_id);
+    bucket_page->WLatch();
+
+    // split the bucket
+    if (bucket_page_data->IsFull()) {
+      // first check whether we need to grow the directory
+      if (dir_page_data->GetLocalDepth(bucket_idx) == dir_page_data->GetGlobalDepth()) {
+        dir_page_data->IncrGlobalDepth();
+        is_growing = true;
+      }
+
+      // second find the bucket pair, and update them
+      dir_page_data->IncrLocalDepth(bucket_idx);
+      auto split_bucket_idx = dir_page_data->GetSplitImageIndex(bucket_idx);
+      page_id_t split_page_id;
+      auto split_page_data =
+          reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(buffer_pool_manager_->NewPage(&split_page_id)->GetData());
+      dir_page_data->SetBucketPageId(split_bucket_idx, split_page_id);
+      dir_page_data->SetLocalDepth(split_bucket_idx, dir_page_data->GetLocalDepth(bucket_idx));
+
+      // rehash all key-value pairs in the bucket pair
+      uint32_t num_read = 0;
+      uint32_t num_readable = bucket_page_data->NumReadable();
+      while (num_read != num_readable) {
+        if (bucket_page_data->IsReadable(num_read)) {
+          auto key = bucket_page_data->KeyAt(num_read);
+          uint32_t which_bucket = Hash(key) & ((1 << dir_page_data->GetLocalDepth(bucket_idx)) - 1);
+          if ((which_bucket ^ split_bucket_idx) == 0) {
+            // remove from the original bucket and insert the new bucket
+            auto value = bucket_page_data->ValueAt(num_read);
+            split_page_data->Insert(key, value, comparator_);
+            bucket_page_data->RemoveAt(num_read);
+          }
+          num_read++;
+        }
+      }
+      buffer_pool_manager_->UnpinPage(split_page_id, true);
+
+      // redirect the reset of the buckets.
+      //! for more info, see VerifyIntegrity().
+      for (uint32_t i = 1 << old_global_depth; i < dir_page_data->Size(); i++) {
+        if (i == split_bucket_idx) {
+          continue;
+        }
+        uint32_t redirect_bucket_idx = i & ((1 << old_global_depth) - 1);
+        dir_page_data->SetBucketPageId(i, dir_page_data->GetBucketPageId(redirect_bucket_idx));
+        dir_page_data->SetLocalDepth(i, dir_page_data->GetLocalDepth(redirect_bucket_idx));
+      }
     } else {
-      hash_table_bucket_page->Insert(k, v, comparator_);
+      // the bucket is not full, so we can insert the key-value directly.
+      success = bucket_page_data->Insert(key, value, comparator_);
+      inserted = true;
     }
+    buffer_pool_manager_->UnpinPage(bucket_page_id, true);
+    bucket_page->WUnlatch();
   }
-  delete[] array;
-  // 9.Set all localDepth
-  uint32_t diff = 1 << hash_table_directory_page->GetLocalDepth(split_image_index);
-  for (uint32_t i = split_image_index; i >= 0; i -= diff) {
-    hash_table_directory_page->SetBucketPageId(i, *split_image_pid);
-    hash_table_directory_page->SetLocalDepth(i, hash_table_directory_page->GetLocalDepth(split_image_index));
-  }
-  for (uint32_t i = split_image_index; i < hash_table_directory_page->Size(); i += diff) {
-    hash_table_directory_page->SetBucketPageId(i, *split_image_pid);
-    hash_table_directory_page->SetLocalDepth(i, hash_table_directory_page->GetLocalDepth(split_image_index));
-  }
-  for (uint32_t i = bucket_index; i >= 0; i -= diff) {
-    hash_table_directory_page->SetBucketPageId(i, bucket_page_id);
-    hash_table_directory_page->SetLocalDepth(i, hash_table_directory_page->GetLocalDepth(split_image_index));
-  }
-  for (uint32_t i = bucket_index; i < hash_table_directory_page->Size(); i += diff) {
-    hash_table_directory_page->SetBucketPageId(i, bucket_page_id);
-    hash_table_directory_page->SetLocalDepth(i, hash_table_directory_page->GetLocalDepth(split_image_index));
-  }
-  page->WUnlatch();
-  assert(buffer_pool_manager_->UnpinPage(*split_image_pid, true));
-  page_latch->WUnlatch();
-  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, true));
-  assert(buffer_pool_manager_->UnpinPage(hash_table_directory_page->GetPageId(), true));
+  buffer_pool_manager_->UnpinPage(directory_page_id_, is_growing);
+
   table_latch_.WUnlock();
-  return Insert(transaction, key, value);
+  return success;
 }
 
 /*****************************************************************************
@@ -284,10 +290,8 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
     buffer_pool_manager_->UnpinPage(bucket_page_id, false);
   }
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
-
   table_latch_.WUnlock();
 }
-
 
 /*****************************************************************************
  * GETGLOBALDEPTH - DO NOT TOUCH

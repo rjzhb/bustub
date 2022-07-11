@@ -14,8 +14,8 @@
 
 #include <queue>
 #include <string>
+#include <utility>
 #include <vector>
-
 #include "buffer/buffer_pool_manager.h"
 #include "concurrency/transaction.h"
 #include "container/hash/hash_function.h"
