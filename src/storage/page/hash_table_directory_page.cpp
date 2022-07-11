@@ -33,11 +33,6 @@ auto HashTableDirectoryPage::GetLocalDepthMask(uint32_t bucket_idx) -> uint32_t 
 
 void HashTableDirectoryPage::IncrGlobalDepth() {
   // data move
-  uint32_t size = Size();
-  for (uint32_t i = 0; i < size && i < DIRECTORY_ARRAY_SIZE; i++) {
-    local_depths_[i + size] = local_depths_[i];
-    bucket_page_ids_[i + size] = bucket_page_ids_[i];
-  }
   global_depth_++;
 }
 
