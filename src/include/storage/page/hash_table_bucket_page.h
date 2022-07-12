@@ -45,7 +45,7 @@ class HashTableBucketPage {
    *
    * @return true if at least one key matched
    */
-  auto GetValue(KeyType key, KeyComparator cmp, std::vector<ValueType> *result) -> bool;
+  bool GetValue(KeyType key, KeyComparator cmp, std::vector<ValueType> *result);
 
   /**
    * Attempts to insert a key and value in the bucket.  Uses the occupied_
@@ -55,14 +55,14 @@ class HashTableBucketPage {
    * @param value value to insert
    * @return true if inserted, false if duplicate KV pair or bucket is full
    */
-  auto Insert(KeyType key, ValueType value, KeyComparator cmp) -> bool;
+  bool Insert(KeyType key, ValueType value, KeyComparator cmp);
 
   /**
    * Removes a key and value.
    *
    * @return true if removed, false if not found
    */
-  auto Remove(KeyType key, ValueType value, KeyComparator cmp) -> bool;
+  bool Remove(KeyType key, ValueType value, KeyComparator cmp);
 
   /**
    * Gets the key at an index in the bucket.
@@ -70,7 +70,7 @@ class HashTableBucketPage {
    * @param bucket_idx the index in the bucket to get the key at
    * @return key at index bucket_idx of the bucket
    */
-  auto KeyAt(uint32_t bucket_idx) const -> KeyType;
+  KeyType KeyAt(uint32_t bucket_idx) const;
 
   /**
    * Gets the value at an index in the bucket.
@@ -78,7 +78,7 @@ class HashTableBucketPage {
    * @param bucket_idx the index in the bucket to get the value at
    * @return value at index bucket_idx of the bucket
    */
-  auto ValueAt(uint32_t bucket_idx) const -> ValueType;
+  ValueType ValueAt(uint32_t bucket_idx) const;
 
   /**
    * Remove the KV pair at bucket_idx
@@ -91,15 +91,16 @@ class HashTableBucketPage {
    * @param bucket_idx index to look at
    * @return true if the index is occupied, false otherwise
    */
-  auto IsOccupied(uint32_t bucket_idx) const -> bool;
+  bool IsOccupied(uint32_t bucket_idx) const;
 
   /**
    * SetOccupied - Updates the bitmap to indicate that the entry at
    * bucket_idx is occupied.
    *
    * @param bucket_idx the index to update
+   * @param bit the bit that you want to set, 0 or 1
    */
-  void SetOccupied(uint32_t bucket_idx);
+  void SetOccupied(uint32_t bucket_idx, int bit);
 
   /**
    * Returns whether or not an index is readable (valid key/value pair)
@@ -107,30 +108,31 @@ class HashTableBucketPage {
    * @param bucket_idx index to lookup
    * @return true if the index is readable, false otherwise
    */
-  auto IsReadable(uint32_t bucket_idx) const -> bool;
+  bool IsReadable(uint32_t bucket_idx) const;
 
   /**
    * SetReadable - Updates the bitmap to indicate that the entry at
    * bucket_idx is readable.
    *
    * @param bucket_idx the index to update
+   * @param bit the bit that you want to set, 0 or 1
    */
-  void SetReadable(uint32_t bucket_idx);
+  void SetReadable(uint32_t bucket_idx, int bit);
 
   /**
    * @return the number of readable elements, i.e. current size
    */
-  auto NumReadable() -> uint32_t;
+  uint32_t NumReadable();
 
   /**
    * @return whether the bucket is full
    */
-  auto IsFull() -> bool;
+  bool IsFull();
 
   /**
    * @return whether the bucket is empty
    */
-  auto IsEmpty() -> bool;
+  bool IsEmpty();
 
   /**
    * Prints the bucket's occupancy information
@@ -138,18 +140,42 @@ class HashTableBucketPage {
   void PrintBucket();
 
   /**
-   * copy Array
+   * @return the length of occupied_ or readable_
    */
-  MappingType *GetCopyArray();
+  int GetNumofChars() const { return (BUCKET_ARRAY_SIZE - 1) / 8 + 1; }
 
-  void ResetMemory();
+  /**
+   * @return first is bucket_idx / 8, second is bucket_idx % 8
+   */
+  std::pair<int, int> GetLocation(uint32_t bucket_idx) const {
+    auto ret = std::pair<int, int>(0, 0);
+    ret.first = bucket_idx / 8;
+    ret.second = bucket_idx % 8;
+    return ret;
+  }
+
+  /**
+   * Set the bit at the specified position
+   *
+   * @param which which bit you want to update
+   * @param bit the bit yout want to set, 0 or 1
+   */
+  char GetMask(int which, int bit) const {
+    char mask = 0;
+    if (bit == 0) {
+      mask = static_cast<char>(~(1 << which));
+    } else {
+      mask = static_cast<char>(1 << which);
+    }
+    return mask;
+  }
 
  private:
   //  For more on BUCKET_ARRAY_SIZE see storage/page/hash_table_page_defs.h
-  char occupied_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
+  char occupied_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1]{0};
   // 0 if tombstone/brand new (never occupied), 1 otherwise.
-  char readable_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1];
-  MappingType array_[1];
+  char readable_[(BUCKET_ARRAY_SIZE - 1) / 8 + 1]{0};
+  MappingType array_[BUCKET_ARRAY_SIZE];
 };
 
 }  // namespace bustub
