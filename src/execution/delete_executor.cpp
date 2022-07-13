@@ -26,14 +26,14 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
   index_info_array_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
 }
 
-void DeleteExecutor::Init() { child_executor_->Init(); }
+void DeleteExecutor::Init() {  child_executor_->Init();}
 
 auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   bool is_delete = false;
   if (child_executor_->Next(tuple, rid)) {
     is_delete = table_info_->table_->MarkDelete(*rid, exec_ctx_->GetTransaction());
   }
-  if (is_delete && !index_info_array_) {
+  if (is_delete && !index_info_array_.empty()) {
     for (auto &index_info : index_info_array_) {
       const auto tuple_key =
           tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
