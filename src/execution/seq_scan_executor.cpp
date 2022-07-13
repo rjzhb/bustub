@@ -21,7 +21,7 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
     : AbstractExecutor(exec_ctx), iter_(nullptr, RID{}, nullptr) {
   plan_ = plan;
   exec_ctx_ = exec_ctx;
-  tableInfo_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
 }
 
 SeqScanExecutor::~SeqScanExecutor() {
@@ -32,7 +32,7 @@ SeqScanExecutor::~SeqScanExecutor() {
 }
 
 void SeqScanExecutor::Init() {
-  iter_ = tableInfo_->table_->Begin(exec_ctx_->GetTransaction());
+  iter_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
   if (plan_->GetPredicate() != nullptr) {
     predicate_ = plan_->GetPredicate();
   } else {
@@ -42,18 +42,18 @@ void SeqScanExecutor::Init() {
 }
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
-  if (iter_ != tableInfo_->table_->End()) {
+  while(iter_ != table_info_->table_->End()) {
+    auto temp = iter_++;
     std::vector<Value> values;
     const Schema *schema = plan_->OutputSchema();
     values.reserve(schema->GetColumnCount());
-    auto value = predicate_->Evaluate(&(*iter_), schema);
+    auto value = predicate_->Evaluate(&(*temp), schema);
     if (value.GetAs<bool>()) {
       for (const Column &column : schema->GetColumns()) {
-        values.push_back(column.GetExpr()->Evaluate(&(*iter_), schema));
+        values.push_back(column.GetExpr()->Evaluate(&(*temp), schema));
       }
       *tuple = Tuple(values, schema);
-      *rid = (*iter_).GetRid();
-      iter_++;
+      *rid = (*temp).GetRid();
       return true;
     }
   }

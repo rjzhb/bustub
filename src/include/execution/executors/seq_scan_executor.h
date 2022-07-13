@@ -52,7 +52,7 @@ class SeqScanExecutor : public AbstractExecutor {
   /** The sequential scan plan node to be executed */
   const SeqScanPlanNode *plan_;
   mutable const AbstractExpression *predicate_;
-  TableInfo *tableInfo_;
+  TableInfo *table_info_;
   TableIterator iter_;
   bool is_alloc_ = false;
 };
