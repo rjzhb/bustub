@@ -14,15 +14,46 @@
 
 #include <memory>
 #include <utility>
-#include "unordered_set"
+#include "common/util/hash_util.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/distinct_plan.h"
+#include "unordered_set"
 
 namespace bustub {
 
 /**
  * DistinctExecutor removes duplicate rows from child ouput.
  */
+struct DistinctKey {
+  std::vector<Value> values_;
+  bool operator==(const DistinctKey &other) const {
+    for (size_t i = 0; i < other.values_.size(); i++) {
+      if (values_[i].CompareEquals(other.values_[i]) != CmpBool::CmpTrue) {
+        return false;
+      }
+    }
+    return true;
+  }
+};
+}  // namespace bustub
+
+namespace std {
+
+template <>
+struct hash<bustub::DistinctKey> {
+  std::size_t operator()(const bustub::DistinctKey &agg_key) const {
+    size_t curr_hash = 0;
+    for (const auto &key : agg_key.values_) {
+      if (!key.IsNull()) {
+        curr_hash = bustub::HashUtil::CombineHashes(curr_hash, bustub::HashUtil::HashValue(&key));
+      }
+    }
+    return curr_hash;
+  }
+};
+}  // namespace std
+
+namespace bustub {
 class DistinctExecutor : public AbstractExecutor {
  public:
   /**
@@ -53,6 +84,6 @@ class DistinctExecutor : public AbstractExecutor {
   const DistinctPlanNode *plan_;
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
-  std::unordered_set<char*> set_;
+  std::unordered_set<DistinctKey> set_;
 };
 }  // namespace bustub

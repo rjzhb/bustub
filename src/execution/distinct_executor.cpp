@@ -22,12 +22,19 @@ DistinctExecutor::DistinctExecutor(ExecutorContext *exec_ctx, const DistinctPlan
   child_executor_ = std::move(child_executor);
 }
 
-void DistinctExecutor::Init() { child_executor_->Init(); }
+void DistinctExecutor::Init() {
+  child_executor_->Init();
+  set_.clear();
+}
 
 auto DistinctExecutor::Next(Tuple *tuple, RID *rid) -> bool {
-  if (child_executor_->Next(tuple, rid)) {
-    if (set_.empty() || set_.find(tuple->GetData()) != set_.end()) {
-      set_.insert(tuple->GetData());
+  while (child_executor_->Next(tuple, rid)) {
+    DistinctKey key;
+    for (size_t i = 0; i < plan_->OutputSchema()->GetColumnCount(); i++) {
+      key.values_.emplace_back(tuple->GetValue(plan_->OutputSchema(), i));
+    }
+    if (set_.count(key) <= 0) {
+      set_.insert(std::move(key));
       return true;
     }
   }
