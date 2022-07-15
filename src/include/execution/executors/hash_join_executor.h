@@ -74,7 +74,9 @@ class HashJoinExecutor : public AbstractExecutor {
   const HashJoinPlanNode *plan_;
   std::unique_ptr<AbstractExecutor> left_child_executor_;
   std::unique_ptr<AbstractExecutor> right_child_executor_;
-  std : unordered_map<HashJoinKey, std::vector<std::vector<Value>>> hash_table_;
+  std::unordered_map<HashJoinKey, std::vector<std::vector<Value>>> hash_table_;
+  std::vector<std::vector<Value>> outer_buffer_table_;
+  uint32_t next_pos_;
 };
 
 }  // namespace bustub
