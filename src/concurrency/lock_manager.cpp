@@ -19,6 +19,7 @@ namespace bustub {
 
 auto LockManager::LockShared(Transaction *txn, const RID &rid) -> bool {
   txn->GetSharedLockSet()->emplace(rid);
+  txn->GetSharedLockSet();
   return true;
 }
 
