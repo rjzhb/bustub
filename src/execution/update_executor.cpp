@@ -28,8 +28,9 @@ void UpdateExecutor::Init() { child_executor_->Init(); }
 
 auto UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   bool is_update = false;
+  Tuple new_tuple;
   if (child_executor_->Next(tuple, rid)) {
-    Tuple new_tuple = GenerateUpdatedTuple(*tuple);
+    new_tuple = GenerateUpdatedTuple(*tuple);
     is_update = table_info_->table_->UpdateTuple(new_tuple, *rid, exec_ctx_->GetTransaction());
   }
   // 更改索引

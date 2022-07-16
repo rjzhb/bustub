@@ -16,6 +16,7 @@
 #include <utility>
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
+#include "common/util/hash_util.h"
 #include "execution/plans/hash_join_plan.h"
 #include "storage/table/tuple.h"
 #include "unordered_map"
@@ -76,7 +77,7 @@ class HashJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> right_child_executor_;
   std::unordered_map<HashJoinKey, std::vector<std::vector<Value>>> hash_table_;
   std::vector<std::vector<Value>> outer_buffer_table_;
-  uint32_t next_pos_;
+  uint32_t next_pos_{0};
 };
 
 }  // namespace bustub

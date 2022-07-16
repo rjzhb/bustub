@@ -37,7 +37,7 @@ HashJoinExecutor::HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlan
       values.emplace_back(left_tuple.GetValue(plan_->GetLeftPlan()->OutputSchema(), i));
     }
     if (hash_table_.count(key) > 0) {
-      hash_table_[key].emplace_back(values);
+      hash_table_[key].emplace_back(std::move(values));
     } else {
       hash_table_.insert({key, {values}});
     }
@@ -55,9 +55,8 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (next_pos_ >= outer_buffer_table_.size()) {
     bool is_find = false;
     while (right_child_executor_->Next(tuple, rid)) {
-      Tuple right_tuple;
-      RID right_rid;
-      Value value = plan_->RightJoinKeyExpression()->Evaluate(&right_tuple, plan_->OutputSchema());
+
+      Value value = plan_->RightJoinKeyExpression()->Evaluate(tuple, plan_->GetRightPlan()->OutputSchema());
       HashJoinKey key{value};
       if (hash_table_.find(key) != hash_table_.end()) {
         is_find = true;
@@ -71,8 +70,8 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     }
   }
   std::vector<Value> values;
-  for (const Column &column : plan_->GetRightPlan()->OutputSchema()->GetColumns()) {
-    ColumnValueExpression *expr = reinterpret_cast<ColumnValueExpression *>(column.GetExpr());
+  for (const Column &column : plan_->OutputSchema()->GetColumns()) {
+    auto expr = reinterpret_cast<const ColumnValueExpression *>(column.GetExpr());
     if (expr->GetTupleIdx() == 0) {
       values.emplace_back(outer_buffer_table_[next_pos_][expr->GetColIdx()]);
     } else {

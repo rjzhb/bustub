@@ -1,4 +1,4 @@
-//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
 //
 //                         BusTub
 //
@@ -44,16 +44,16 @@ void SeqScanExecutor::Init() {
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   while(iter_ != table_info_->table_->End()) {
     auto temp = iter_++;
-    std::vector<Value> values;
     const Schema *schema = plan_->OutputSchema();
-    values.reserve(schema->GetColumnCount());
-    auto value = predicate_->Evaluate(&(*temp), schema);
+    auto value = predicate_->Evaluate(&(*temp), &table_info_->schema_);
     if (value.GetAs<bool>()) {
+      std::vector<Value> values;
+      values.reserve(schema->GetColumnCount());
       for (const Column &column : schema->GetColumns()) {
-        values.push_back(column.GetExpr()->Evaluate(&(*temp), schema));
+        values.push_back(column.GetExpr()->Evaluate(&(*temp), &table_info_->schema_));
       }
       *tuple = Tuple(values, schema);
-      *rid = (*temp).GetRid();
+      *rid = temp->GetRid();
       return true;
     }
   }

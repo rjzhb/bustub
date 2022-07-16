@@ -209,9 +209,8 @@ class AggregationExecutor : public AbstractExecutor {
   /** The child executor that produces tuples over which the aggregation is computed */
   std::unique_ptr<AbstractExecutor> child_;
   /** Simple aggregation hash table */
-  SimpleAggregationHashTable *table_;
+  SimpleAggregationHashTable table_;
   /** Simple aggregation hash table iterator */
   SimpleAggregationHashTable::Iterator iter_;
-  std::vector<AbstractExpression *> agg_exprs_;
 };
 }  // namespace bustub
