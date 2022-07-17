@@ -51,6 +51,9 @@ class LockManager {
     std::condition_variable cv_;
     // txn_id of an upgrading transaction (if any)
     txn_id_t upgrading_ = INVALID_TXN_ID;
+
+    bool is_writing_{false};
+    size_t sharing_count_{0};
   };
 
  public:
