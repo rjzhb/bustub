@@ -107,11 +107,22 @@ class LockManager {
    */
   auto Unlock(Transaction *txn, const RID &rid) -> bool;
 
+  void CheckAborted(Transaction *txn,LockRequestQueue *request_queue);
+
+
+
  private:
   std::mutex latch_;
-
   /** Lock table for lock requests. */
   std::unordered_map<RID, LockRequestQueue> lock_table_;
+
+  std::list<LockRequest>::iterator GetIterator(std::list<LockRequest> *request_queue, txn_id_t txn_id);
+
+  std::unordered_map<txn_id_t, Transaction *> id_2_txn_;
+
+  void DeadlockPrevent(Transaction *txn, LockRequestQueue *request_queue);
+
+  bool LockPrepare(Transaction *txn, const RID &rid);
 };
 
 }  // namespace bustub
